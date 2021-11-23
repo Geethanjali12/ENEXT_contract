@@ -59,7 +59,7 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     rinkeby: {
-      provider: () => new HDWalletProvider(privateKey, `https://rinkeby.infura.io/v3/${projectID}`),    
+      provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/${projectID}`),    
      network_id: 4,       // Ropsten's id
      gas: 5500000,        // Ropsten has a lower block limit than mainnet
      confirmations: 2,    // # of confs to wait between deployments. (default: 0)
@@ -104,14 +104,21 @@ module.exports = {
   // After you backed up your artifacts you can utilize db by running migrate as follows: 
   // $ truffle migrate --reset --compile-all
   //
-   db: {
-   enabled: false,
-    // host: "127.0.0.1",
-    // adapter: {
-    //   name: "sqlite",
-    //   settings: {
-    //     directory: ".db"
-    //   }
-    // }
-   }
+  //  db: {
+  //  enabled: false,
+  //   // host: "127.0.0.1",
+  //   // adapter: {
+  //   //   name: "sqlite",
+  //   //   settings: {
+  //   //     directory: ".db"
+  //   //   }
+  //   // }
+  //  }
+  plugins: [
+    "truffle-plugin-verify"
+  ],
+
+  api_keys: {
+    etherscan: "7N8UC88N4GM5XGF81P39GJTJ3UHSSG3NQI"
+  }
 };
