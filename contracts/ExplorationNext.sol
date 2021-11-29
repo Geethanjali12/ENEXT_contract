@@ -157,7 +157,7 @@ uint256 public minLiquidity ;
     /**
      * @dev See {IERC20-approve}.
      *
-     * Requirements:
+     * Requirements:`
      *
      * - `spender` cannot be the zero address.
      */
@@ -166,7 +166,7 @@ uint256 public minLiquidity ;
         return true;
     }
 
-    /**
+    /**   
      * @dev See {IERC20-transferFrom}.
      *
      * Emits an {Approval} event indicating the updated allowance. This is not
@@ -426,7 +426,7 @@ uint256 public minLiquidity ;
         //uint256 senderBalance = balanceOf(from);
         //require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
         uint256 contractTokenBalance = balanceOf(address(this));
-         bool previousenableFee;
+        // bool previousenableFee;
 
          if(contractTokenBalance >= _maxTxAmount)
         {
@@ -452,25 +452,25 @@ uint256 public minLiquidity ;
         if(_isExcludedFromFee[from] || _isExcludedFromFee[to]){
             takeFee = false;
         }
-        if (
-            !inSwapAndLiquify &&
-            from != uniswapV2Pair &&
-            swapAndLiquifyEnabled
-        ) {
-            if (enableFee == true) {
-                previousenableFee = enableFee;
-                enableFee = false;
-            }
-            //add liquidity
-            swapAndLiquify(contractTokenBalance);
-            if (previousenableFee == true) {
-                enableFee = true;
-            }
-        }
-        require(
-            contractTokenBalance >= amount,
-            "ERC20: transfer amount exceeds balance"
-        );
+        // if (
+        //     !inSwapAndLiquify &&
+        //     from != uniswapV2Pair &&
+        //     swapAndLiquifyEnabled
+        // ) {
+        //     if (enableFee == true) {
+        //         previousenableFee = enableFee;
+        //         enableFee = false;
+        //     }
+        //     //add liquidity
+        //     swapAndLiquify(contractTokenBalance);
+        //     if (previousenableFee == true) {
+        //         enableFee = true;
+        //     }
+        // }
+        // require(
+        //     contractTokenBalance >= amount,
+        //     "ERC20: transfer amount exceeds balance"
+        // );
        
         //transfer amount, it will take tax, burn and charity amount
         _tokenTransfer(from,to,amount,takeFee);
