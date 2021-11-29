@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./interface/IUniswapV2Router.sol";
 import "./interface/IUniswapV2Factory.sol";
 import "./interface/IUniswapV2Pair.sol";
+import "./interface/YourToken.sol";
 
 contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable {
     using SafeMath for uint256;
@@ -30,7 +31,9 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable {
     address UNISWAPV2ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     address devAddress = 0xdDb9a4461e5fF9f8035770E81209979D722697D4;
-   
+    
+    address tokenAddress = 0x0107dFC63167266aD4F963245bCCdb5E165F5E03;
+
     uint256 private constant MAX = ~uint256(0);
     uint256 private _tTotal = 387000000  * 10**18;
     uint256 private _rTotal = (MAX - (MAX % _tTotal));
@@ -51,15 +54,18 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable {
     uint256 private previousMarketingWalletFee = marketingWalletFee;
 
     bool public enableFee;
+
+     bool public taxDisableInLiquidity;
  
     IUniswapV2Router02 public immutable uniswapV2Router;
     address public uniswapV2Pair;
+
 
     bool inSwapAndLiquify;
     bool public swapAndLiquifyEnabled = true;
 
      
-uint256 public minLiquidity ;
+    uint256 public minLiquidity ;
     uint256 public feeEnable;
 
     uint256 public _maxTxAmount = 5000000 * 10**18;
@@ -314,6 +320,7 @@ uint256 public minLiquidity ;
         swapAndLiquifyEnabled = _enabled;
         emit SwapAndLiquifyEnabledUpdated(_enabled);
     }
+
      //to recieve ETH from uniswapV2Router when swaping
     receive() external payable {}
 
@@ -421,62 +428,35 @@ uint256 public minLiquidity ;
         if(from != owner() && to != owner())
             require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
         
-        //_beforeTokenTransfer(from, to);
-        
-        //uint256 senderBalance = balanceOf(from);
-        //require(senderBalance >= amount, "ERC20: transfer amount exceeds balance");
-        uint256 contractTokenBalance = balanceOf(address(this));
-        // bool previousenableFee;
-
-         if(contractTokenBalance >= _maxTxAmount)
-        {
-            contractTokenBalance = _maxTxAmount;
-        }
-        
-        bool overMinTokenBalance = contractTokenBalance >= numTokensSellToAddToLiquidity;
-        if (
-            overMinTokenBalance &&
-            !inSwapAndLiquify &&
-            from != uniswapV2Pair &&
-            swapAndLiquifyEnabled
-        ) {
-            contractTokenBalance = numTokensSellToAddToLiquidity;
-            //add liquidity
-            swapAndLiquify(contractTokenBalance);
-        }
-
-        //indicates if fee should be deducted from transfer
+         //indicates if fee should be deducted from transfer
         bool takeFee = true;
         
-         //if any account belongs to _isExcludedFromFee account then remove the fee
-        if(_isExcludedFromFee[from] || _isExcludedFromFee[to]){
+        //if any account belongs to _isIncludedInFee account then take fee
+        //else remove fee
+        if(!enableFee){
             takeFee = false;
         }
-        // if (
-        //     !inSwapAndLiquify &&
-        //     from != uniswapV2Pair &&
-        //     swapAndLiquifyEnabled
-        // ) {
-        //     if (enableFee == true) {
-        //         previousenableFee = enableFee;
-        //         enableFee = false;
-        //     }
-        //     //add liquidity
-        //     swapAndLiquify(contractTokenBalance);
-        //     if (previousenableFee == true) {
-        //         enableFee = true;
-        //     }
-        // }
-        // require(
-        //     contractTokenBalance >= amount,
-        //     "ERC20: transfer amount exceeds balance"
-        // );
+        
+        uint256 contractTokenBalance = balanceOf(address(this));
+    
+        
+        bool overMinTokenBalance = contractTokenBalance >= numTokensSellToAddToLiquidity;
+       if(overMinTokenBalance && from != uniswapV2Pair){
+            if(enableFee){
+                enableFee = false;
+                taxDisableInLiquidity = true;
+            }
+            swapAndLiquify(contractTokenBalance);
+            if(taxDisableInLiquidity){
+                enableFee = true;
+            }
+        }
        
         //transfer amount, it will take tax, burn and charity amount
         _tokenTransfer(from,to,amount,takeFee);
     }
     
-    function swapAndLiquify(uint256 contractTokenBalance) private lockTheSwap {
+    function swapAndLiquify(uint256 contractTokenBalance) private {
         // split the contract balance into halves
         uint256 half = contractTokenBalance.div(2);
         uint256 otherHalf = contractTokenBalance.sub(half);
@@ -493,7 +473,7 @@ uint256 public minLiquidity ;
         uint256 newBalance = address(this).balance.sub(initialBalance);
 
         // add liquidity to uniswap
-        addLiquidity(otherHalf, newBalance);
+        addLiquidity(otherHalf, newBalance );
         
         emit SwapAndLiquify(half, newBalance, otherHalf);
     }
