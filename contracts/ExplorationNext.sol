@@ -70,7 +70,7 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable {
 
     uint256 public _maxTxAmount = 5000000 * 10**18;
 
- uint256 private numTokensSellToAddToLiquidity = 500000 * 10**18;    
+ uint256 private numTokensSellToAddToLiquidity = 50 * 10**18;    
 
     event FeeEnable(bool enableFee);
     event SetMaxTxPercent(uint256 maxPercent);
@@ -425,31 +425,37 @@ contract ExplorationNext is Context, IERC20, IERC20Metadata, Ownable {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
-        if(from != owner() && to != owner())
-            require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
-        
-         //indicates if fee should be deducted from transfer
-        bool takeFee = true;
-        
-        //if any account belongs to _isIncludedInFee account then take fee
-        //else remove fee
-        if(!enableFee){
-            takeFee = false;
-        }
-        
+        // if(from != owner() && to != owner())
+            // require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
+        _beforeTokenTransfer(from, to);
+        uint256 senderBalance = balanceOf(from);
         uint256 contractTokenBalance = balanceOf(address(this));
-    
-        
         bool overMinTokenBalance = contractTokenBalance >= numTokensSellToAddToLiquidity;
-       if(overMinTokenBalance && from != uniswapV2Pair){
+       if(overMinTokenBalance && 
+            !inSwapAndLiquify &&
+            from != uniswapV2Pair &&
+            swapAndLiquifyEnabled){
             if(enableFee){
                 enableFee = false;
                 taxDisableInLiquidity = true;
             }
+            contractTokenBalance = numTokensSellToAddToLiquidity;
             swapAndLiquify(contractTokenBalance);
-            if(taxDisableInLiquidity){
+            if(taxDisableInLiquidity = false){
                 enableFee = true;
             }
+        }
+
+           require(
+            senderBalance >= amount,
+            "ERC20: transfer amount exceeds balance"
+        );
+         //indicates if fee should be deducted from transfer
+        bool takeFee = true;
+         //if any account belongs to _isIncludedInFee account then take fee
+        //else remove fee
+        if (!enableFee) {
+            takeFee = false;
         }
        
         //transfer amount, it will take tax, burn and charity amount
