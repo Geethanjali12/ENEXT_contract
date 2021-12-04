@@ -59,15 +59,13 @@ module.exports = {
     // Useful for deploying to a public network.
     // NB: It's important to wrap the provider as a function.
     rinkeby: {
-      provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/${projectID}`),    
-     network_id: 4,       // Ropsten's id
-     //gas: 5000000,        // Ropsten has a lower block limit than mainnet
-     confirmations: 2,    // # of confs to wait between deployments. (default: 0)
-     timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
-     skipDryRun: true,     // Skip dry run before migrations? (default: false for public nets )
-     gas: 6721975, //from ganache-cli output
-     gasPrice: 20000000000 //From ganache-cli output
-     },
+      provider: () => new HDWalletProvider(mnemonic, `https://rinkeby.infura.io/v3/${projectID}`),
+      network_id: 4,       // Ropsten's id
+      gas: 5500000,        // Ropsten has a lower block limit than mainnet
+      confirmations: 2,    // # of confs to wait between deployments. (default: 0)
+      timeoutBlocks: 200,  // # of blocks before a deployment times out  (minimum/default: 50)
+      skipDryRun: true     // Skip dry run before migrations? (default: false for public nets )
+      },
     // Useful for private networks
     // private: {
     // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
